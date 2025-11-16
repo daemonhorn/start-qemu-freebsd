@@ -1,6 +1,6 @@
 #!/bin/sh
 set -o errexit
-set -o pipefail
+#set -o pipefail
 
 # Helper script for running FreeBSD under Qemu (multi-arch)
 # Downloads images/ISOs from FreeBSD master site
@@ -28,13 +28,14 @@ idu="$(id -u)"
 usage() { 
 	echo "Usage:"
 	echo " $0 [-a <arm64|riscv64|amd64|ppc64>] (required)"
-	echo -e "    [-r <BETA|ALPHA|${GREEN}RELEASE${NO_COLOR}>]" 
+	echo -e "    [-r <ALPHA|BETA|RC|${GREEN}RELEASE${NO_COLOR}>]" 
 	echo -e "    [-t <ISO|${GREEN}VM${NO_COLOR}>]"
 	echo "    [-T] (start tmux on vm launch)"
 	echo "    [-u <USBDevice String>] (host-to-guest mapping)"
 	echo ""
 	echo " -a will select an architecture arm64|riscv64|amd64|ppc64 (required)"
-	echo -e " -r will select the latest BETA|ALPHA|${GREEN}RELEASE${NO_COLOR} version available for download"
+	echo -e " -r will select the latest ALPHA|BETA|RC|${GREEN}RELEASE${NO_COLOR} version available for download"
+	echo "    The latest version (e.g. 15.0 or 14.3) that matches -r will be used."
 	echo -e " -t will select a ${GREEN}VM_IMAGE (Default)${NO_COLOR} or ISO (Install from scratch) for download"
 	echo " -T will optionally enable tmux serial console and qemu-monitor in foreground"
 	echo " -u will optionally enable passthrough of specific USB device from HOST to GUEST"
@@ -55,7 +56,7 @@ while getopts ":a:r:u:t:T" opt; do
 		r)
 			r=${OPTARG}
 			# If it does not match BETA or ALPHA set to RELEASE
-			[ ${r} = "BETA" -o ${r} = "ALPHA" ] || r="RELEASE"
+			[ ${r} = "BETA" -o ${r} = "ALPHA" -o ${r} = "RC" -o ${r} = "RELEASE" ] || usage 
 			;;
 		u)
 			u=${OPTARG}
@@ -147,6 +148,7 @@ validate-sha512() {
 fetch-image() {
 	latest_version=$(curl -s ${dl_uri}VM-IMAGES/ \
 		| grep -E -o -e "[0-9.]{3}[0-9]{1}-${r}[0-9]*/" | uniq | sort -gr | head -1 | tr -d '/')
+	[ -z ${latest_version} ] && echo "Error: No VM files found matching cli parameters." && exit 1
 	image_file="FreeBSD-${latest_version}-${archvariant}-ufs.qcow2"
 	if [ ! -s ${image_file} ] ; then
 		echo "Fetching VM Image: ${image_file}"
@@ -168,6 +170,7 @@ fetch-iso() {
 	#echo "toplevel_version: ${toplevel_version}"
 	latest_version=$(curl -s ${dl_uri}ISO-IMAGES/${toplevel_version}/ \
 		| grep -E -o -e "[0-9.]{3}[0-9]{1}-${r}[0-9]*" | uniq | sort -gr | head -1 | tr -d '/')
+	[ -z ${latest_version} ] && echo "Error: No ISO files found matching cli parameters." && exit 1
 	#echo "latest_version: ${latest_version}"
 	iso_file="FreeBSD-${latest_version}-${archvariant}-bootonly.iso"
 	echo "Getting ready to fetch and/or start ${iso_file}"
