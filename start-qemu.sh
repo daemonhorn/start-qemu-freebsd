@@ -124,7 +124,7 @@ case "${a}" in
 		# https://qemu.readthedocs.io/en/v10.0.3/system/ppc/pseries.html
 		bios=""
 		qemu_bin="qemu-system-ppc64"
-		machine="pseries,cap-cfpc=broken,cap-sbbc=broken,cap-ibs=broken,cap-ccf-assist=broken"
+		machine="pseries,cap-cfpc=broken,cap-sbbc=broken,cap-ibs=broken"
 		;;
 esac
 
