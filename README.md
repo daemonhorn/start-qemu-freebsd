@@ -8,11 +8,23 @@ This script will:
 * (Optionally) launch console via tmux
 * (Optionally) map specific USB devices into guest from host
 
+## Architectures
+| Architecture  | ISO | VM |
+| ------------- | --- | -- |
+| arm64 | ✅ Yes | ✅ Yes |
+| riscv64 | ✅ Yes | ✅ Yes |
+| amd64 | ✅ Yes | ✅ Yes |
+| ppc64 | ✅ Yes | ❌No |
 
 ## Dependancies
 * Functional bridge interface (by default named `bridge0`)
 * System with enough ram and proc for qemu to create and execute the VM
 * Recent version of FreeBSD for Host (capable of running Qemu 10)
+
+## Notes
+* VM Images autodetected and downloaded from https://download.freebsd.org/releases/VM-IMAGES/
+* ISO Images autodetected and downloaded from https://download.freebsd.org/releases/ISO-IMAGES/
+
 
 ## CLI Syntax
 ```
