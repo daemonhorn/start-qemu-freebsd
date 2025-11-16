@@ -135,14 +135,12 @@ esac
 validate-sha512() {
 	set +o errexit
 	[ -z "${1}" -o ! -s ${1} ] && echo "No file ${1} for hash verification" && exit 1
-	echo "Validating SHA512 CHECKSUM..."
+	echo "Validating SHA512 CHECKSUM for $1"
 	# We are cheating a bit and just using file globs so we don't need to pass in exact CHECKSUM filename
-	expect_hash=$(grep ${1} CHECKSUM.SHA512* | cut -d "=" -f 2 | tr -d ' ')
-	#echo "expect_hash: ${expect_hash}"
+	expect_hash=$(grep ${1} CHECKSUM.SHA512* | cut -d "=" -f 2 | head -1 | tr -d ' ')
 	actual_hash=$(sha512sum --quiet ${1} | tr -d ' ')
-	#echo "actual_hash: ${actual_hash}"
 	if [ "${expect_hash}" != "${actual_hash}" ] ; then
-		printf "Failure validating hash on ${1}. \nExpect: ${expect_hash} \nActual: ${actual_hash}\n" 
+		printf "Failure validating hash on ${1}. \nExpect: ${expect_hash} \n\nActual: ${actual_hash}\n" 
 		exit 1
 	fi
 	set -o errexit
