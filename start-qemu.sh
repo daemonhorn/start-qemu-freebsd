@@ -164,7 +164,6 @@ fetch-image() {
 		unxz ${image_file}.xz
 		qemu-img resize ${image_file} +${disksize}
 	fi
-	validate-sha512 ${image_file}
 }
 
 fetch-iso() {
@@ -200,6 +199,7 @@ fetch-iso() {
 			qemu-img create -f qcow2 ${image_file} ${disksize} 
 		fi
 	fi
+	validate-sha512 ${iso_file}
 }
 
 setup-usb-passthrough() {
