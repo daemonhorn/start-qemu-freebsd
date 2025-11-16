@@ -1,5 +1,6 @@
 #!/bin/sh
 set -o errexit
+set -o pipefail
 
 # Helper script for running FreeBSD under Qemu (multi-arch)
 # Downloads images/ISOs from FreeBSD master site
@@ -18,7 +19,11 @@ work_dir="."
 # Qemu hardware config (adjust as desired)
 memory="4g"
 cpus="8"
+bridge="bridge0"
 
+# Check for root privs
+idu="$(id -u)"
+[ ${idu} != "0" ] && echo "You must be root (or sudo) to run $0" && exit 1
 
 usage() { 
 	echo "Usage:"
@@ -79,6 +84,11 @@ fi
 # Check to make sure qemu is installed
 which qemu-system-x86_64 >/dev/null 2>&1 || pkg install -y qemu-nox11
 
+# Check for qemu-ifup/ifdown scripts, and set reasonable defaults for bridge and tap
+# Qemu will automatically create the tap interface at startup
+[ ! -s /usr/local/etc/qemu-ifup ] && printf "#!/bin/sh\nifconfig ${bridge} addm \$1 up\nifconfig \$1 up\n" >/usr/local/etc/qemu-ifup && chmod +x /usr/local/etc/qemu-ifup
+[ ! -s /usr/local/etc/qemu-ifdown ] && printf "#!/bin/sh\nifconfig \$1 down\nifconfig ${bridge} deletem \$1\n" >/usr/local/etc/qemu-ifdown && chmod +x /usr/local/etc/qemu-ifdown
+
 # Handle the architecture specific variables and arguments
 case "${a}" in
 	amd64)
@@ -108,10 +118,13 @@ case "${a}" in
 	ppc64)
 		arch="powerpc64"
 		archvariant="powerpc-${arch}"
+		# These disable flags are needed as per https://wiki.freebsd.org/powerpc/QEMU
 		archflags="-vga none -nographic"
+		# bios is null as there is a built-in ppc64 open firmware
+		# https://qemu.readthedocs.io/en/v10.0.3/system/ppc/pseries.html
 		bios=""
 		qemu_bin="qemu-system-ppc64"
-		machine="pseries,cap-cfpc=broken,cap-sbbc=broken,cap-ibs=broken"
+		machine="pseries,cap-cfpc=broken,cap-sbbc=broken,cap-ibs=broken,cap-ccf-assist=broken"
 		;;
 esac
 
@@ -135,8 +148,12 @@ fetch-image() {
 	latest_version=$(curl -s ${dl_uri}VM-IMAGES/ \
 		| grep -E -o -e "[0-9.]{3}[0-9]{1}-${r}[0-9]*/" | uniq | sort -gr | head -1 | tr -d '/')
 	image_file="FreeBSD-${latest_version}-${archvariant}-ufs.qcow2"
-	echo "Getting ready to fetch and/or start ${image_file}"
 	if [ ! -s ${image_file} ] ; then
+		echo "Fetching VM Image: ${image_file}"
+		if [ ${a} = "ppc64" ]; then
+        		echo "Warning:  PowerPC 64 does not have a VM image for FreeBSD at this time (2025), looking anyway..."
+			echo "Recommend using -t ISO for ppc64"
+		fi
 		fetch "${dl_uri}VM-IMAGES/${latest_version}/${arch}/Latest/${image_file}.xz" "${dl_uri}VM-IMAGES/${latest_version}/${arch}/Latest/CHECKSUM.SHA512"
 		validate-sha512 ${image_file}.xz 
 		unxz ${image_file}.xz
