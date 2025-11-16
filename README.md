@@ -1,2 +1,32 @@
-# start-qemu-freebsd
+# Start-Qemu-FreeBSD
 Example script to make it easy to spin up an alternate architecture qemu VM (FreeBSD host + FreeBSD guest) for testing. 
+
+This script will:
+* Download latest FreeBSD (RELEASE/BETA/ALPHA) ISO files and/or VM images required for testing
+* Use `pkg` to install dependancies for qemu and bios/firmware for supported architectures.
+* Create qcow2 disk images and launch (default = 45G Disk, 4GB RAM, 4 CPU Cores)
+* (Optionally) launch console via tmux
+* (Optionally) map specific USB devices into guest from host
+
+
+## Dependancies
+* Functional bridge interface (by default named `bridge0`)
+* System with enough ram and proc for qemu to create and execute the VM
+* Recent version of FreeBSD for Host (capable of running Qemu 10)
+
+## CLI Syntax
+```
+% sudo ./start-qemu.sh
+Usage:
+ ./start-qemu.sh [-a <arm64|riscv64|amd64|ppc64>] (required)
+    [-r <BETA|ALPHA|RELEASE>]
+    [-t <ISO|VM>]
+    [-T] (start tmux on vm launch)
+    [-u <USBDevice String>] (host-to-guest mapping)
+
+ -a will select an architecture arm64|riscv64|amd64|ppc64 (required)
+ -r will select the latest BETA|ALPHA|RELEASE version available for download
+ -t will select a VM_IMAGE (Default) or ISO (Install from scratch) for download
+ -T will optionally enable tmux serial console and qemu-monitor in foreground
+ -u will optionally enable passthrough of specific USB device from HOST to GUEST
+```
