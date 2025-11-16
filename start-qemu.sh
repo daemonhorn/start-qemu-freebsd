@@ -20,6 +20,9 @@ work_dir="."
 memory="4g"
 cpus="8"
 bridge="bridge0"
+disksize="45g"
+serial_0_tcpport="4444"
+serial_1_tcpport="4445"
 
 # Check for root privs
 idu="$(id -u)"
@@ -159,8 +162,9 @@ fetch-image() {
 		fetch "${dl_uri}VM-IMAGES/${latest_version}/${arch}/Latest/${image_file}.xz" "${dl_uri}VM-IMAGES/${latest_version}/${arch}/Latest/CHECKSUM.SHA512"
 		validate-sha512 ${image_file}.xz 
 		unxz ${image_file}.xz
-		qemu-img resize ${image_file} +45G
+		qemu-img resize ${image_file} +${disksize}
 	fi
+	validate-sha512 ${image_file}
 }
 
 fetch-iso() {
@@ -188,12 +192,12 @@ fetch-iso() {
 		unxz ${iso_file}.xz
 	fi
 	if [ ! -s ${image_file} ] ; then
-		qemu-img create -f qcow2 ${image_file} 45G
+		qemu-img create -f qcow2 ${image_file} ${disksize} 
 	else
 		read -p "You selected ISO Install with an existing disk image ${image_file}.  Do you wish to remove the existing file and recreate a blank disk file ? (y/n): " overwrite
 		if [ "${overwrite}" = "y" -o "${overwrite}" = "Y" ] ; then
 			rm ${image_file} 
-			qemu-img create -f qcow2 ${image_file} 45G
+			qemu-img create -f qcow2 ${image_file} ${disksize} 
 		fi
 	fi
 }
@@ -216,8 +220,8 @@ setup-usb-passthrough() {
 }
 
 start-tmux() {
-	tmux new-session -d -s qemu-monitor 'telnet localhost 4445'
-	tmux new-session -d -s ${image_file} 'telnet localhost 4444'
+	tmux new-session -d -s qemu-monitor "telnet localhost ${serial_1_tcpport}" 
+	tmux new-session -d -s ${image_file} "telnet localhost ${serial_0_tcpport}"
 	tmux attach
 }
 
@@ -234,7 +238,7 @@ if [ ! -z "$(pgrep qemu-system)" ]; then
 	if [ $(pgrep -P ${tmux_pid} -l | grep -c telnet) -gt 0 ]; then 
 		echo "Try: tmux attach"
 	else
-		echo "Try: telnet localhost 4444 or telnet localhost 4445"
+		echo "Try: telnet localhost ${serial_0_tcpport} or telnet localhost ${serial_1_tcpport}"
 	fi
 	exit 1
 fi
@@ -248,8 +252,8 @@ ${qemu_bin} -m ${memory} -cpu max -smp cpus=${cpus} -M ${machine} \
 	${bios} \
 	${iso_boot_cli} \
 	${archflags} \
-	-serial telnet:localhost:4444,mux=on,server,wait=off \
-	-monitor telnet:localhost:4445,mux=on,server,wait=off \
+	-serial telnet:localhost:${serial_0_tcpport},mux=on,server,wait=off \
+	-monitor telnet:localhost:${serial_1_tcpport},mux=on,server,wait=off \
 	-display none \
 	-drive if=none,file=${work_dir}/${image_file},id=hd0 \
 	-device virtio-blk-pci,drive=hd0 \
@@ -261,9 +265,9 @@ ${qemu_bin} -m ${memory} -cpu max -smp cpus=${cpus} -M ${machine} \
 	-daemonize
 
 if [ "${t}" = "ISO" -a -z "${T}" ] ; then
-	telnet localhost 4444
+	telnet localhost ${serial_0_tcpport} 
 elif [ "${T}" ] ; then
 	start-tmux
 else
-	echo "Connect to guest console (telnet localhost 4444), or qemu monitor (telnet localhost 4445)"
+	echo "Connect to guest console (telnet localhost ${serial_0_tcpport}), or qemu monitor (telnet localhost ${serial_1_tcpport})"
 fi
