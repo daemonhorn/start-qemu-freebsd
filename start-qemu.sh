@@ -199,7 +199,7 @@ fetch-iso() {
 	fi
 	if [ ! -s ${image_file} ] ; then
 		qemu-img create -f qcow2 ${image_file} ${disksize} 
-	else
+	elif [ $(fstat ${image_file} | grep -c ${image_file}) -eq 0 ]; then 
 		read -p "You selected ISO Install with an existing disk image ${image_file}.  Do you wish to remove the existing file and recreate a blank disk file ? (y/n): " overwrite
 		if [ "${overwrite}" = "y" -o "${overwrite}" = "Y" ] ; then
 			rm ${image_file} 
@@ -245,7 +245,8 @@ if [ ! -z "$(pgrep -fl qemu-system | grep -i ${image_file})" ]; then
 	if [ $(pgrep -P ${tmux_pid} -l | grep -c telnet) -gt 0 ]; then 
 		echo "Try: tmux attach"
 	else
-		echo "Try: telnet localhost ${serial_0_tcpport} or telnet localhost ${serial_1_tcpport}"
+		echo "Try: telnet localhost $(expr ${serial_0_tcpport} - 2) or telnet localhost $(expr ${serial_1_tcpport} - 2)"
+		echo "     For supportd hosts (e.g. amd64), you can also connect via vnc at $(hostname):$(expr 5899 + ${pcount})"
 	fi
 	exit 1
 fi
@@ -277,4 +278,5 @@ elif [ "${T}" ] ; then
 	start-tmux
 else
 	echo "Connect to guest console (telnet localhost ${serial_0_tcpport}), or qemu monitor (telnet localhost ${serial_1_tcpport})"
+	echo "  For amd64 hosts, you can also connect via vnc at $(hostname):$(expr 5900 + ${pcount})"
 fi
