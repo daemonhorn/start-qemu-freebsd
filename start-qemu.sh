@@ -1,6 +1,5 @@
 #!/bin/sh
 set -o errexit
-#set -o pipefail
 
 # Helper script for running FreeBSD under Qemu (multi-arch)
 # Downloads images/ISOs from FreeBSD master site
@@ -21,8 +20,11 @@ memory="4g"
 cpus="8"
 bridge="bridge0"
 disksize="45g"
-serial_0_tcpport="4444"
-serial_1_tcpport="4445"
+
+pcount="$(pgrep qemu-system | wc -l | tr -d ' ' || echo -n 0)"
+poffset="$(expr ${pcount} \* 2)"
+serial_0_tcpport="$(expr 4444 + ${poffset})"
+serial_1_tcpport="$(expr ${serial_0_tcpport} + 1)"
 
 # Check for root privs
 idu="$(id -u)"
@@ -35,6 +37,7 @@ usage() {
 	echo -e "    [-t <ISO|${GREEN}VM${NO_COLOR}>]"
 	echo "    [-T] (start tmux on vm launch)"
 	echo "    [-u <USBDevice String>] (host-to-guest mapping)"
+	echo "    [-V] (enable VNC console)"
 	echo ""
 	echo " -a will select an architecture arm64|riscv64|amd64|ppc64 (required)"
 	echo -e " -r will select the latest ALPHA|BETA|RC|${GREEN}RELEASE${NO_COLOR} version available for download"
@@ -42,6 +45,7 @@ usage() {
 	echo -e " -t will select a ${GREEN}VM_IMAGE (Default)${NO_COLOR} or ISO (Install from scratch) for download"
 	echo " -T will optionally enable tmux serial console and qemu-monitor in foreground"
 	echo " -u will optionally enable passthrough of specific USB device from HOST to GUEST"
+	echo " -V will optionally enable VNC console"
 	echo ""
 	exit 1
 }
@@ -50,7 +54,7 @@ usage() {
 r="RELEASE"
 t="VM"
 
-while getopts ":a:r:u:t:T" opt; do
+while getopts ":a:r:u:t:TV" opt; do
 	case "${opt}" in
 		a)
 			a=${OPTARG}
@@ -72,6 +76,11 @@ while getopts ":a:r:u:t:T" opt; do
 		T)
 			T="YES"
 			pkg info tmux >/dev/null || pkg install -y tmux
+			;;
+		V)	
+			V="YES"
+			vnc="-display vnc=:${pcount},password-secret=sec0 -object secret,id=sec0,file=passwd.txt"
+			[ ! -s passwd.txt ] && echo -n "Enter VNC Password: " && read -s password && printf $password >passwd.txt 
 			;;
 		*)
 			usage
@@ -218,8 +227,8 @@ setup-usb-passthrough() {
 }
 
 start-tmux() {
-	tmux new-session -d -s qemu-monitor "telnet localhost ${serial_1_tcpport}" 
-	tmux new-session -d -s ${image_file} "telnet localhost ${serial_0_tcpport}"
+	tmux new-session -d -s q-mon-${pcount} "telnet localhost ${serial_1_tcpport}" 
+	tmux new-session -d -s Q-${a}-${pcount} "telnet localhost ${serial_0_tcpport}"
 	tmux attach
 }
 
@@ -229,7 +238,7 @@ start-tmux() {
 
 # Safety check.
 set +o errexit
-if [ ! -z "$(pgrep qemu-system)" ]; then
+if [ ! -z "$(pgrep -fl qemu-system | grep -i ${image_file})" ]; then
 	echo "Qemu is already running. Attach to existing console or shutdown the guest."
 	# Dynamically see if there is a telnet running under a tmux using pgrep
 	tmux_pid=$(pgrep tmux || echo 0)
@@ -250,9 +259,9 @@ ${qemu_bin} -m ${memory} -cpu max -smp cpus=${cpus} -M ${machine} \
 	${bios} \
 	${iso_boot_cli} \
 	${archflags} \
+	${vnc} \
 	-serial telnet:localhost:${serial_0_tcpport},mux=on,server,wait=off \
 	-monitor telnet:localhost:${serial_1_tcpport},mux=on,server,wait=off \
-	-display none \
 	-drive if=none,file=${work_dir}/${image_file},id=hd0 \
 	-device virtio-blk-pci,drive=hd0 \
 	-device virtio-net-pci,netdev=net0 \
