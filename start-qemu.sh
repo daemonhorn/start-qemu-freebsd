@@ -254,7 +254,10 @@ check_depends() {
 	which qemu-system-x86_64 >/dev/null 2>&1 || pkg install -y qemu-nox11
 
 	# Check to see if the $bridge interface exists
-        if [ $(ifconfig ${bridge} >/dev/null &>1; printf $?) -gt 0 ]; then
+	set +e
+	rc=$(ifconfig ${bridge} >/dev/null 2>&1 ; printf $?)
+	set -e
+        if [ ${rc} -gt 0 ]; then
                 printf "Interface: ${bridge} needs to be configured for networking to work in the guest.\n"
                 printf "  If this is host has an ethernet connection (non-Wifi), this is as simple as:\n"
                 printf "  ifconfig ${bridge} create up\n"
@@ -264,7 +267,7 @@ check_depends() {
 	# Check for qemu-ifup/ifdown scripts, and set reasonable defaults for bridge and tap
 	# Qemu will automatically create the tap interface at startup
 	if [ ! -s /usr/local/etc/qemu-ifup ] ; then
-		printf "#!/bin/sh\nifconfig ${bridge} addm \$1 up\nifconfig \$1 up\n" >/usr/local/qemu-ifup
+		printf "#!/bin/sh\nifconfig ${bridge} addm \$1 up\nifconfig \$1 up\n" >/usr/local/etc/qemu-ifup
 		chmod +x /usr/local/etc/qemu-ifup
 	fi
 	if [ ! -s /usr/local/etc/qemu-ifdown ] ; then
