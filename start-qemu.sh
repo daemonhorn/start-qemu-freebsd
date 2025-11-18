@@ -27,10 +27,6 @@ poffset="$((pcount * 2))"
 serial_0_tcpport="$((4444 + poffset))"
 serial_1_tcpport="$((serial_0_tcpport + 1))"
 
-# Check for root privs
-idu="$(id -u)"
-[ "${idu}" != "0" ] && printf "${RED}You must be root (or sudo) to run ${0} ${NO_COLOR}\n" && exit 1
-
 usage() {
         printf "Usage:\n"
         printf " $0 [-a <arm64|riscv64|amd64|ppc64>] ${BLUE}(required)${NO_COLOR}\n"
@@ -114,14 +110,6 @@ shift $((OPTIND-1))
 if [ -z "${a}" ]; then
         usage
 fi
-
-# Check to make sure qemu is installed
-which qemu-system-x86_64 >/dev/null 2>&1 || pkg install -y qemu-nox11
-
-# Check for qemu-ifup/ifdown scripts, and set reasonable defaults for bridge and tap
-# Qemu will automatically create the tap interface at startup
-[ ! -s /usr/local/etc/qemu-ifup ] && printf "#!/bin/sh\nifconfig ${bridge} addm \$1 up\nifconfig \$1 up\n" >/usr/local/etc/qemu-ifup && chmod +x /usr/local/etc/qemu-ifup
-[ ! -s /usr/local/etc/qemu-ifdown ] && printf "#!/bin/sh\nifconfig \$1 down\nifconfig ${bridge} deletem \$1\n" >/usr/local/etc/qemu-ifdown && chmod +x /usr/local/etc/qemu-ifdown
 
 # Handle the architecture specific variables and arguments
 case "${a}" in
@@ -253,25 +241,59 @@ start_tmux() {
         tmux attach
 }
 
+check_depends() {
+
+        # Check for root privs
+        idu="$(id -u)"
+        if [ "${idu}" != "0" ] ; then
+                printf "${RED}You must be root (or sudo) to run ${0} ${NO_COLOR}\n"
+                exit 1
+        fi
+
+	# Check to make sure qemu is installed
+	which qemu-system-x86_64 >/dev/null 2>&1 || pkg install -y qemu-nox11
+
+	# Check to see if the $bridge interface exists
+        if [ $(ifconfig ${bridge} >/dev/null &>1; printf $?) -gt 0 ]; then
+                printf "Interface: ${bridge} needs to be configured for networking to work in the guest.\n"
+                printf "  If this is host has an ethernet connection (non-Wifi), this is as simple as:\n"
+                printf "  ifconfig ${bridge} create up\n"
+                exit 1
+        fi
+
+	# Check for qemu-ifup/ifdown scripts, and set reasonable defaults for bridge and tap
+	# Qemu will automatically create the tap interface at startup
+	if [ ! -s /usr/local/etc/qemu-ifup ] ; then
+		printf "#!/bin/sh\nifconfig ${bridge} addm \$1 up\nifconfig \$1 up\n" >/usr/local/qemu-ifup
+		chmod +x /usr/local/etc/qemu-ifup
+	fi
+	if [ ! -s /usr/local/etc/qemu-ifdown ] ; then
+		printf "#!/bin/sh\nifconfig \$1 down\nifconfig ${bridge} deletem \$1\n" >/usr/local/etc/qemu-ifdown
+		chmod +x /usr/local/etc/qemu-ifdown
+	fi
+	# Safety check.
+	set +o errexit
+	if [ ! -z "$(pgrep -fl qemu-system | grep -i "${image_file}")" ]; then
+        	printf "Qemu is already running. Attach to existing console or shutdown the guest.\n"
+        	# Dynamically see if there is a telnet running under a tmux using pgrep
+        	tmux_pid=$(pgrep tmux || printf 0)
+        	if [ $(pgrep -P "${tmux_pid}" -l | grep -c telnet) -gt 0 ]; then
+                	printf "Try: tmux attach\n"
+        	else
+                	printf "Try: telnet localhost $(expr ${serial_0_tcpport} - 2) or telnet localhost $(expr ${serial_1_tcpport} - 2)\n"
+                	printf "     For supportd hosts (e.g. amd64), you can also connect via vnc at $(hostname):$(expr 5899 + "${pcount}")\n"
+        	fi
+        	exit 1
+	fi
+	set -o errexit
+}
+
+check_depends
 [ "${t}" = "VM" ] && fetch_image
 [ "${t}" = "ISO" ] && fetch_iso
 [ ! -z "${u}" ] && setup_usb_passthrough
 
-# Safety check.
 set +o errexit
-if [ ! -z "$(pgrep -fl qemu-system | grep -i "${image_file}")" ]; then
-        printf "Qemu is already running. Attach to existing console or shutdown the guest.\n"
-        # Dynamically see if there is a telnet running under a tmux using pgrep
-        tmux_pid=$(pgrep tmux || printf 0)
-        if [ $(pgrep -P "${tmux_pid}" -l | grep -c telnet) -gt 0 ]; then
-                printf "Try: tmux attach\n"
-        else
-                printf "Try: telnet localhost $(expr ${serial_0_tcpport} - 2) or telnet localhost $(expr ${serial_1_tcpport} - 2)\n"
-                printf "     For supportd hosts (e.g. amd64), you can also connect via vnc at $(hostname):$(expr 5899 + "${pcount}")\n"
-        fi
-        exit 1
-fi
-
 # Cleanup tap0 interfaces that are not in use anymore.
 ifconfig tap0 2>/dev/null | grep -cq -e "Opened by PID" || ifconfig tap0 destroy 2>/dev/null || true
 set -o errexit
