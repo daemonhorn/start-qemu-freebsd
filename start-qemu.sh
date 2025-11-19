@@ -152,8 +152,8 @@ esac
 
 validate_sha512() {
         set +o errexit
-        [ -z "${1}" -o ! -s "${1}" ] && printf "No file ${1} for hash verification" && exit 1
-        printf "Validating SHA512 CHECKSUM for $1"
+        [ -z "${1}" -o ! -s "${1}" ] && printf "No file ${1} for hash verification\n" && exit 1
+        printf "Validating SHA512 CHECKSUM for $1\n"
         # We are cheating a bit and just using file globs so we don't need to pass in exact CHECKSUM filename
         expect_hash=$(grep "${1}" CHECKSUM.SHA512* | cut -d "=" -f 2 | head -1 | tr -d ' ')
         actual_hash=$(sha512sum "${1}" | cut -d ' ' -f 1 | tr -d ' ')
@@ -170,7 +170,7 @@ fetch_image() {
         [ -z "${latest_version}" ] && printf "Error: No VM files found matching cli parameters.\n" && exit 1
         image_file="FreeBSD-${latest_version}-${archvariant}-ufs.qcow2"
         if [ ! -s "${image_file}" ] ; then
-                printf "Fetching VM Image: ${image_file}"
+                printf "Fetching VM Image: ${image_file}\n"
                 if [ "${a}" = "ppc64" ]; then
                         printf "Warning:  PowerPC 64 does not have a VM image for FreeBSD at this time (2025), looking anyway...\n"
                         printf "Recommend using -t ISO for ppc64\n"
@@ -186,13 +186,13 @@ fetch_iso() {
         toplevel_version=$(curl -s ${dl_uri}VM-IMAGES/ \
                 | grep -E -o -e "[0-9.]{3}[0-9]{1}-${r}[0-9]*/" | uniq | sort -gr | \
                 head -1 | tr -d '/' | sed s/-"${r}"[0-9]*//1)
-        #printf "toplevel_version: ${toplevel_version}"
+        #printf "toplevel_version: ${toplevel_version}\n"
         latest_version=$(curl -s ${dl_uri}ISO-IMAGES/"${toplevel_version}"/ \
                 | grep -E -o -e "[0-9.]{3}[0-9]{1}-${r}[0-9]*" | uniq | sort -gr | head -1 | tr -d '/')
         [ -z "${latest_version}" ] && printf "Error: No ISO files found matching cli parameters.\n" && exit 1
         #printf "latest_version: ${latest_version}\n"
         iso_file="FreeBSD-${latest_version}-${archvariant}-bootonly.iso"
-        printf "Getting ready to fetch and/or start ${iso_file}\n"
+        printf "Fetching ISO file: ${iso_file}\n"
         iso_boot_cli="-boot order=d -cdrom ${iso_file}"
         image_file="FreeBSD-${latest_version}-${archvariant}-ufs.qcow2"
         iso_dl_uri="${dl_uri}ISO-IMAGES/${toplevel_version}/${iso_file}"
@@ -222,7 +222,7 @@ setup_usb_passthrough() {
         printf "Attempting to passthrough usb host device based on query string: ${u}\n"
         usb_map_count=$(usbconfig | grep -cie "${u}")
         [ "${usb_map_count}" -ne 1 ] && \
-                printf "Total devices matched: ${usb_map_count} is not equal to 1, please refine." && \
+                printf "Total devices matched: ${usb_map_count} is not equal to 1, please refine.\n" && \
                 usbconfig && exit 1
         usb_map=$(usbconfig | grep -ie "${u}" | grep -E -o -e "[0-9]+\.[0-9]+")
         #printf "usb_map: ${usb_map}\n"
@@ -260,7 +260,7 @@ check_depends() {
         if [ ${rc} -gt 0 ]; then
                 printf "Interface: ${bridge} needs to be configured for networking to work in the guest.\n"
                 printf "  If this is host has an ethernet connection (non-Wifi), this is as simple as:\n"
-                printf "  ifconfig ${bridge} create up\n"
+                printf "  ifconfig ${bridge} create up addm em0\n"
                 exit 1
         fi
 
