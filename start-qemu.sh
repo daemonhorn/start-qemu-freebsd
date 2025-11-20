@@ -276,7 +276,7 @@ check_depends() {
 	fi
 	# Safety check.
 	set +o errexit
-	if [ ! -z "$(pgrep -fl qemu-system | grep -i "${image_file}")" ]; then
+	if [ ! -z "$(pgrep -fl qemu-system | grep -i ${image_file})" ]; then
         	printf "Qemu is already running. Attach to existing console or shutdown the guest.\n"
         	# Dynamically see if there is a telnet running under a tmux using pgrep
         	tmux_pid=$(pgrep tmux || printf 0)
