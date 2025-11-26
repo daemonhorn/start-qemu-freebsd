@@ -292,10 +292,10 @@ check_depends() {
 	set -o errexit
 }
 
-check_depends
 [ "${t}" = "VM" ] && fetch_image
 [ "${t}" = "ISO" ] && fetch_iso
 [ ! -z "${u}" ] && setup_usb_passthrough
+check_depends
 
 set +o errexit
 # Cleanup tap0 interfaces that are not in use anymore.
