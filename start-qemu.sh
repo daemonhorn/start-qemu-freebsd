@@ -256,11 +256,12 @@ check_depends() {
 	# Check to see if the $bridge interface exists
 	set +e
 	rc=$(ifconfig ${bridge} >/dev/null 2>&1 ; printf $?)
+	defaultif=$(route get default -iface | grep interface | cut -d ':' -f 2 | tr -d ' ')
 	set -e
         if [ ${rc} -gt 0 ]; then
                 printf "Interface: ${bridge} needs to be configured for networking to work in the guest.\n"
                 printf "  If this is host has an ethernet connection (non-Wifi), this is as simple as:\n"
-                printf "  ifconfig ${bridge} create up addm em0\n"
+                printf "  ${BLUE}ifconfig ${bridge} create up addm ${defaultif}${NO_COLOR}\n"
                 exit 1
         fi
 
