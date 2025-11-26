@@ -266,11 +266,11 @@ check_depends() {
 
 	# Check for qemu-ifup/ifdown scripts, and set reasonable defaults for bridge and tap
 	# Qemu will automatically create the tap interface at startup
-	if [ ! -s /usr/local/etc/qemu-ifup ] ; then
+	if [ ! -s /usr/local/etc/qemu-ifup -o "$(wc -c /usr/local/etc/qemu-ifup | grep -o -E '[0-9]+')" = "20" ] ; then
 		printf "#!/bin/sh\nifconfig ${bridge} addm \$1 up\nifconfig \$1 up\n" >/usr/local/etc/qemu-ifup
 		chmod +x /usr/local/etc/qemu-ifup
 	fi
-	if [ ! -s /usr/local/etc/qemu-ifdown ] ; then
+	if [ ! -s /usr/local/etc/qemu-ifdown -o "$(wc -c /usr/local/etc/qemu-ifdown | grep -o -E '[0-9]+')" = "20" ] ; then
 		printf "#!/bin/sh\nifconfig \$1 down\nifconfig ${bridge} deletem \$1\n" >/usr/local/etc/qemu-ifdown
 		chmod +x /usr/local/etc/qemu-ifdown
 	fi
