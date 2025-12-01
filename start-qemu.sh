@@ -33,6 +33,7 @@ usage() {
         printf "    [-r <ALPHA|BETA|RC|${GREEN}RELEASE${NO_COLOR}>]\n"
         printf "    [-t <ISO|${GREEN}VM${NO_COLOR}>]\n"
         printf "    [-T] (start tmux on vm launch)\n"
+        printf "    [-G] (start console in GTK window)\n"
         printf "    [-u <USBDevice String>] (host-to-guest mapping)\n"
         printf "    [-V] (enable VNC console)\n"
         printf "\n"
@@ -50,7 +51,7 @@ usage() {
 r="RELEASE"
 t="VM"
 
-while getopts ":a:r:u:t:TV" opt; do
+while getopts ":a:r:u:t:TVG" opt; do
         case "${opt}" in
                 a)
                         a=${OPTARG}
@@ -99,6 +100,9 @@ while getopts ":a:r:u:t:TV" opt; do
                                 printf "${vnc_pass}" >vnc_pass.txt
                         fi
                         ;;
+                G)	
+                	gtk="-display gtk"
+                	;;
                 *)
                         usage
                         ;;
@@ -308,6 +312,7 @@ ${qemu_bin} -m ${memory} -cpu max -smp cpus=${cpus} -M ${machine} \
         ${iso_boot_cli} \
         ${archflags} \
         ${vnc} \
+        ${gtk} \
         -serial telnet:localhost:${serial_0_tcpport},mux=on,server,wait=off \
         -monitor telnet:localhost:${serial_1_tcpport},mux=on,server,wait=off \
         -drive if=none,file=${work_dir}/"${image_file}",id=hd0 \
